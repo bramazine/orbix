@@ -1,0 +1,57 @@
+Orbix License
+
+Copyright (c) 2026 bram
+
+TERMS AND CONDITIONS
+
+1. DEFINITIONS
+   "Software" refers to the Orbix package and all associated code, documentation, and assets.
+   "You" refers to any individual or entity using, accessing, or interacting with the Software.
+   "Contribution" refers to any work of authorship submitted to the project maintainer through official channels.
+
+2. GRANT OF RIGHTS
+   Subject to the terms and conditions of this license, You are granted a limited, non-exclusive, 
+   non-transferable license to:
+   - Use the Software for personal, educational, or commercial purposes
+   - View and study the source code
+   - Submit Contributions through official project channels (pull requests, issues, etc.)
+
+3. RESTRICTIONS
+   You may NOT:
+   - Modify, alter, or create derivative works of the Software outside of official Contribution channels
+   - Distribute modified versions of the Software
+   - Remove or alter any copyright notices or license terms
+   - Use the Software in any way that violates applicable laws or regulations
+   - Fork the repository for the purpose of creating competing or derivative projects
+
+4. CONTRIBUTIONS
+   - All Contributions must be submitted through official project channels (GitHub pull requests)
+   - By submitting a Contribution, You grant the copyright holder perpetual, worldwide, 
+     non-exclusive, royalty-free rights to use, modify, and distribute Your Contribution
+   - You represent that You have the right to make the Contribution and that it does not 
+     violate any third-party rights
+   - Contributions are subject to review and acceptance at the sole discretion of the project maintainer
+
+5. ATTRIBUTION
+   You must retain all copyright notices and give appropriate credit when using the Software.
+
+6. DISCLAIMER OF WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, 
+   INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR 
+   PURPOSE AND NONINFRINGEMENT.
+
+7. LIMITATION OF LIABILITY
+   IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, 
+   WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION 
+   WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+8. TERMINATION
+   This license terminates automatically if You violate any of its terms. Upon termination, 
+   You must cease all use of the Software and destroy all copies in Your possession.
+
+9. GOVERNING LAW
+   This license shall be governed by and construed in accordance with the laws of the 
+   jurisdiction where the copyright holder resides.
+
+For questions about this license or to request permissions beyond those granted herein, 
+open an issue.
