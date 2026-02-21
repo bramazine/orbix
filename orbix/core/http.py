@@ -78,10 +78,9 @@ class HTTPClient:
 
     async def __aexit__(
         self,
-        exc_type: type[BaseException]
-        | None,  # ;;
+        exc_type: type[BaseException] | None,  # ;;
         exc_val: BaseException | None,  # ;;
-        exc_tb: object,  # ;;
+        exc_tb: object | None,  # ;;
     ) -> None:
         await self.close()
 
