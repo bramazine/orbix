@@ -14,7 +14,7 @@ class RobloxAPIError(Exception):
 
 class UserNotFoundError(RobloxAPIError):
     def __init__(
-        self, 
+        self,
         user_identifier: str,
     ) -> None:
         message = f"requested user @{user_identifier} not found"

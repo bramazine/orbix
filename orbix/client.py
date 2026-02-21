@@ -12,7 +12,16 @@ from .core import (
     retry_on_failure,
 )
 from .exceptions import UserNotFoundError
-from .models import UserAvatar, UserProfile
+from .models import (
+    FavouriteGame,
+    Game,
+    LimitedItem,
+    UserAvatar,
+    UserBadge,
+    UserPresence,
+    UserProfile,
+    WearingItem,
+)
 
 log = logging.getLogger(__name__)
 
@@ -106,7 +115,7 @@ class OrbixClient:
             )
         except Exception:
             log.exception(
-                "unable to fetch counts for user %d",
+                "couldn't grab follower counts for user %d",
                 user_id,
             )
 
@@ -336,6 +345,325 @@ class OrbixClient:
         )
         return response.get("count", 0)
 
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_badges(
+        self,
+        user_id: int,
+        limit: int = 10,
+        sort_order: str = "Asc",
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        allowed_limits = [10, 25, 50, 100]
+        if limit not in allowed_limits:
+            limit = min(
+                allowed_limits,
+                key=lambda x: abs(x - limit),
+            )
+
+        params = {
+            "limit": limit,
+            "sortOrder": sort_order,
+        }
+
+        if cursor:
+            params["cursor"] = cursor
+
+        response = await self._http.get(
+            "badges",
+            f"/v1/users/{user_id}/badges",
+            params=params,
+        )
+
+        badges = []
+        for badge_data in response.get(
+            "data", []
+        ):
+            try:
+                badges.append(
+                    self._parse_user_badge(
+                        badge_data
+                    )
+                )
+            except Exception:
+                log.exception(
+                    "badge data looks wonky: %s",
+                    badge_data,
+                )
+                continue
+
+        return {
+            "badges": badges,
+            "previous_cursor": response.get(
+                "previousPageCursor"
+            ),
+            "next_cursor": response.get(
+                "nextPageCursor"
+            ),
+        }
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_presence(
+        self,
+        user_ids: list[int],
+    ) -> list[UserPresence]:
+        if not user_ids:
+            return []
+
+        if len(user_ids) > 20:
+            raise ValueError(
+                "20 user IDs allowed per request"
+            )
+
+        response = await self._http.post(
+            "presence",
+            "/v1/presence/users",
+            data={"userIds": user_ids},
+        )
+
+        presences = []
+        for presence_data in response.get(
+            "userPresences", []
+        ):
+            try:
+                presences.append(
+                    self._parse_user_presence(
+                        presence_data
+                    )
+                )
+            except Exception:
+                log.exception(
+                    "presence data is messed up: %s",
+                    presence_data,
+                )
+                continue
+
+        return presences
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_presence_single(
+        self,
+        user_id: int,
+    ) -> UserPresence | None:
+        presences = await self.get_user_presence(
+            [user_id]
+        )
+        return presences[0] if presences else None
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_favourite_games(
+        self,
+        user_id: int,
+        limit: int = 10,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        params = {
+            "limit": min(limit, 50),
+            "sortOrder": "Desc",
+        }
+
+        if cursor:
+            params["cursor"] = cursor
+
+        try:
+            response = await self._http.get(
+                "games",
+                f"/v2/users/{user_id}/favourite/games",
+                params=params,
+            )
+
+            favourite_games = []
+            for game_data in response.get(
+                "data", []
+            ):
+                try:
+                    game = self._parse_game_basic(
+                        game_data
+                    )
+                    favourite_games.append(
+                        FavouriteGame(game=game)
+                    )
+                except Exception:
+                    log.exception(
+                        "favourite game data is broken: %s",
+                        game_data,
+                    )
+                    continue
+
+            return {
+                "favourite_games": favourite_games,
+                "previous_cursor": response.get(
+                    "previousPageCursor"
+                ),
+                "next_cursor": response.get(
+                    "nextPageCursor"
+                ),
+            }
+        except Exception as e:
+            log.warning(
+                "can't get favourite games for user %d: %s",
+                user_id,
+                e,
+            )
+            return {
+                "favourite_games": [],
+                "previous_cursor": None,
+                "next_cursor": None,
+            }
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_game_details(
+        self,
+        universe_ids: list[int],
+    ) -> list[Game]:
+        if not universe_ids:
+            return []
+
+        if len(universe_ids) > 100:
+            raise ValueError(
+                "100 universe IDs allowed per request"
+            )
+
+        params = {
+            "universeIds": ",".join(
+                map(str, universe_ids)
+            )
+        }
+
+        response = await self._http.get(
+            "games",
+            "/v1/games",
+            params=params,
+        )
+
+        games = []
+        for game_data in response.get("data", []):
+            try:
+                games.append(
+                    self._parse_game_detailed(
+                        game_data
+                    )
+                )
+            except Exception:
+                log.exception(
+                    "game data is messed up: %s",
+                    game_data,
+                )
+                continue
+
+        return games
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_game_details_single(
+        self,
+        universe_id: int,
+    ) -> Game | None:
+        games = await self.get_game_details(
+            [universe_id]
+        )
+        return games[0] if games else None
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_currently_wearing(
+        self,
+        user_id: int,
+    ) -> list[WearingItem]:
+        try:
+            response = await self._http.get(
+                "avatar",
+                f"/v1/users/{user_id}/currently-wearing",
+            )
+
+            asset_ids = response.get(
+                "assetIds", []
+            )
+            return [
+                WearingItem(asset_id=asset_id)
+                for asset_id in asset_ids
+            ]
+        except Exception as e:
+            log.warning(
+                "can't get avatar items for user %d: %s",
+                user_id,
+                e,
+            )
+            return []
+
+    @rate_limit(calls_per_minute=120)
+    @retry_on_failure(max_retries=3)
+    async def get_user_limited_items(
+        self,
+        user_id: int,
+        limit: int = 10,
+        cursor: str | None = None,
+    ) -> dict[str, Any]:
+        allowed_limits = [10, 25, 50, 100]
+        if limit not in allowed_limits:
+            limit = min(
+                allowed_limits,
+                key=lambda x: abs(x - limit),
+            )
+
+        params = {
+            "assetType": "All",
+            "limit": limit,
+            "sortOrder": "Desc",
+        }
+
+        if cursor:
+            params["cursor"] = cursor
+
+        try:
+            response = await self._http.get(
+                "inventory",
+                f"/v1/users/{user_id}/assets/collectibles",
+                params=params,
+            )
+
+            limited_items = []
+            for item_data in response.get(
+                "data", []
+            ):
+                try:
+                    limited_items.append(
+                        self._parse_limited_item(
+                            item_data
+                        )
+                    )
+                except Exception:
+                    log.exception(
+                        "limited item data is messed up: %s",
+                        item_data,
+                    )
+                    continue
+
+            return {
+                "limited_items": limited_items,
+                "previous_cursor": response.get(
+                    "previousPageCursor"
+                ),
+                "next_cursor": response.get(
+                    "nextPageCursor"
+                ),
+            }
+        except Exception as e:
+            log.warning(
+                "can't get collectibles for user %d: %s",
+                user_id,
+                e,
+            )
+            return {
+                "limited_items": [],
+                "previous_cursor": None,
+                "next_cursor": None,
+            }
+
     @staticmethod
     def _parse_user_profile(
         data: dict[str, Any],
@@ -389,3 +717,150 @@ class OrbixClient:
         if not data:
             return ""
         return data[0].get("imageUrl", "")
+
+    @staticmethod
+    def _parse_user_badge(
+        data: dict[str, Any],
+    ) -> UserBadge:
+        created = data.get("created")
+        created_date = (
+            datetime.fromisoformat(
+                created.replace("Z", "+00:00")
+            )
+            if created
+            else None
+        )
+
+        statistics = data.get("statistics", {})
+
+        return UserBadge(
+            id=data["id"],
+            name=data["name"],
+            description=data.get(
+                "description", ""
+            ),
+            enabled=data.get("enabled", True),
+            icon_image_id=data.get(
+                "iconImageId", 0
+            ),
+            created=created_date,
+            awarded_count=statistics.get(
+                "awardedCount", 0
+            ),
+            win_rate_percentage=statistics.get(
+                "winRatePercentage", 0.0
+            ),
+        )
+
+    @staticmethod
+    def _parse_user_presence(
+        data: dict[str, Any],
+    ) -> UserPresence:
+        return UserPresence(
+            user_id=data["userId"],
+            presence_type=data.get(
+                "userPresenceType", 0
+            ),
+            last_location=data.get(
+                "lastLocation", ""
+            ),
+            place_id=data.get("placeId"),
+            root_place_id=data.get("rootPlaceId"),
+            game_id=data.get("gameId"),
+            universe_id=data.get("universeId"),
+        )
+
+    @staticmethod
+    def _parse_game_basic(
+        data: dict[str, Any],
+    ) -> Game:
+        created = data.get("created")
+        created_date = (
+            datetime.fromisoformat(
+                created.replace("Z", "+00:00")
+            )
+            if created
+            else None
+        )
+
+        creator = data.get("creator", {})
+
+        return Game(
+            id=data.get("id", 0),
+            root_place_id=data.get(
+                "rootPlaceId", 0
+            ),
+            name=data.get("name", ""),
+            description=data.get(
+                "description", ""
+            ),
+            creator_id=creator.get("id", 0),
+            creator_name=creator.get("name", ""),
+            creator_type=creator.get(
+                "type", "User"
+            ),
+            playing=data.get("playing", 0),
+            visits=data.get("visits", 0),
+            max_players=data.get("maxPlayers", 0),
+            created=created_date,
+            genre=data.get("genre", ""),
+        )
+
+    @staticmethod
+    def _parse_game_detailed(
+        data: dict[str, Any],
+    ) -> Game:
+        created = data.get("created")
+        created_date = (
+            datetime.fromisoformat(
+                created.replace("Z", "+00:00")
+            )
+            if created
+            else None
+        )
+
+        creator = data.get("creator", {})
+
+        return Game(
+            id=data["id"],
+            root_place_id=data["rootPlaceId"],
+            name=data["name"],
+            description=data.get(
+                "description", ""
+            ),
+            creator_id=creator.get("id", 0),
+            creator_name=creator.get("name", ""),
+            creator_type=creator.get(
+                "type", "User"
+            ),
+            playing=data.get("playing", 0),
+            visits=data.get("visits", 0),
+            max_players=data.get("maxPlayers", 0),
+            created=created_date,
+            genre=data.get("genre", ""),
+        )
+
+    @staticmethod
+    def _parse_limited_item(
+        data: dict[str, Any],
+    ) -> LimitedItem:
+        return LimitedItem(
+            user_asset_id=data.get(
+                "userAssetId", 0
+            ),
+            serial_number=data.get(
+                "serialNumber", 0
+            ),
+            asset_id=data.get("assetId", 0),
+            name=data.get("name", ""),
+            recent_average_price=data.get(
+                "recentAveragePrice", 0
+            ),
+            original_price=data.get(
+                "originalPrice", 0
+            ),
+            asset_stock=data.get("assetStock", 0),
+            is_on_hold=data.get(
+                "isOnHold", False
+            ),
+        )

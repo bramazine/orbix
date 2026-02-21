@@ -111,6 +111,12 @@ Default sizes are `48x48` for headshot and bust, `150x150` for full body. Other 
 | `get_user_follower_count(user_id)` | `int` | follower count |
 | `get_user_following_count(user_id)` | `int` | following count |
 | `get_user_friend_count(user_id)` | `int` | friend count |
+| `get_user_badges(user_id, limit=10, cursor=None)` | `dict` | user badges with pagination |
+| `get_user_presence(user_ids)` | `list[UserPresence]` | online status for multiple users |
+| `get_user_favourite_games(user_id, limit=10, cursor=None)` | `dict` | favourite games with pagination |
+| `get_game_details(universe_ids)` | `list[Game]` | game info for multiple universes |
+| `get_user_currently_wearing(user_id)` | `list[WearingItem]` | avatar items currently equipped |
+| `get_user_limited_items(user_id, limit=10, cursor=None)` | `dict` | collectibles/limiteds with pagination |
 
 ### Utility
 
@@ -123,6 +129,21 @@ Default sizes are `48x48` for headshot and bust, `150x150` for full body. Other 
 
 ## Models
 
+```py
+
+from orbix import (
+    OrbixClient,
+    UserProfile, 
+    UserAvatar, 
+    UserBadge, 
+    UserPresence,
+    Game, FavouriteGame, 
+    WearingItem, 
+    LimitedItem,
+    UserNotFoundError
+)
+```
+
 ### UserProfile
 
 Frozen dataclass. All are immutable instances;
@@ -133,11 +154,78 @@ Frozen dataclass. All are immutable instances;
 | `username` | `str` | |
 | `display_name` | `str` | |
 | `description` | `str` | |
-| `created_date` | `datetime \| None` | `None` for simplified profiles |
+| `created_date` | `datetime \| None` | |
 | `follower_count` | `int` | |
 | `following_count` | `int` | |
 | `friend_count` | `int` | |
 | `is_verified` | `bool` | |
+
+### UserBadge
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `id` | `int` | |
+| `name` | `str` | |
+| `description` | `str` | |
+| `enabled` | `bool` | |
+| `icon_image_id` | `int` | |
+| `created` | `datetime \| None` | |
+| `awarded_count` | `int` | |
+| `win_rate_percentage` | `float` | |
+
+### UserPresence
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `user_id` | `int` | |
+| `presence_type` | `int` | 0=offline, 1=online, 2=ingame, 3=studio |
+| `last_location` | `str` | |
+| `place_id` | `int \| None` | |
+| `root_place_id` | `int \| None` | |
+| `game_id` | `int \| None` | |
+| `universe_id` | `int \| None` | |
+
+### Game
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `id` | `int` | universe id |
+| `root_place_id` | `int` | |
+| `name` | `str` | |
+| `description` | `str` | |
+| `creator_id` | `int` | |
+| `creator_name` | `str` | |
+| `creator_type` | `str` | User or Group |
+| `playing` | `int` | current players |
+| `visits` | `int` | total visits |
+| `max_players` | `int` | |
+| `created` | `datetime \| None` | |
+| `genre` | `str` | |
+
+### FavouriteGame
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `game` | `Game` | |
+
+### WearingItem
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `asset_id` | `int` | |
+
+### LimitedItem
+
+| Field | Type | Notes |
+|:--|:--|:--|
+| `user_asset_id` | `int` | unique instance id |
+| `serial_number` | `int` | 0 if not numbered |
+| `asset_id` | `int` | |
+| `name` | `str` | |
+| `recent_average_price` | `int` | robux |
+| `original_price` | `int` | robux |
+| `asset_stock` | `int` | total copies |
+| `is_on_hold` | `bool` | trading status |
 | `profile_url` | `str` | computed property |
 
 ### UserAvatar
@@ -184,7 +272,8 @@ Every API method is decorated with automatic rate limiting. Limits are per-metho
 | Method Group | Limit |
 |:--|:--|
 | user / batch / social lists | 120 calls/min |
-| avatars | 180 calls/min |
+| avatars / badges / presence / games / inventory | 120 calls/min |
+| avatar thumbnails | 180 calls/min |
 | social counts | 60 calls/min |
 
 Failed requests are retried up to 3 times with exponential backoff.
